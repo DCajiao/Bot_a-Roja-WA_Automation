@@ -1,0 +1,9 @@
+[project]
+name = "Bot_a-Roja-WA_Automation"
+version = "0.1.0"
+description = "It is what it is"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "requests>=2.32.5",
+]
