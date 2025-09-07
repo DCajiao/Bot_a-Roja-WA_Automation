@@ -1,6 +1,6 @@
 """
 Main Flask Application
-Integrates WhatsApp message processing with AI data extraction
+Integrates WhatsApp message processing with AI data extraction and Google Sheets storage
 """
 
 import os
@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 # Import our custom modules
 from core.message_manager import process_message
 from core.ai_processor import extract_user_data_with_ai
+from core.gsheets_client import GSheetsClient
 
 # Load environment variables
 load_dotenv()
@@ -24,7 +25,8 @@ app.config['DEBUG'] = os.getenv('FLASK_DEBUG', 'False').lower() == 'true'
 @app.route('/webhook/<path:subpath>', methods=['POST'])
 def webhook_handler(subpath):
     """
-    Main webhook endpoint that processes WhatsApp messages and extracts user data.
+    Main webhook endpoint that processes WhatsApp messages, extracts user data,
+    and saves it to Google Sheets if valid data is found.
     
     Returns:
         JSON response with extracted user data or error information
@@ -40,7 +42,8 @@ def webhook_handler(subpath):
                 "error": "No JSON payload received",
                 "full_name": None,
                 "phone_number": None,
-                "id_document": None
+                "id_document": None,
+                "saved_to_sheets": False
             }), 400
         
         # Process the WhatsApp message
@@ -51,18 +54,41 @@ def webhook_handler(subpath):
                 "error": "Message does not meet processing criteria",
                 "full_name": None,
                 "phone_number": None,
-                "id_document": None
+                "id_document": None,
+                "saved_to_sheets": False
             }), 200
         
         # Extract user data using AI
         extracted_data = extract_user_data_with_ai(message_content)
         
-        # Add success status to response
+        # Initialize Google Sheets client and try to save data
+        saved_to_sheets = False
+        sheets_error = None
+        
+        try:
+            sheets_client = GSheetsClient()
+            saved_to_sheets = sheets_client.insert_user_data(extracted_data)
+            
+            if saved_to_sheets:
+                print(f"✅ Data successfully saved to Google Sheets: {extracted_data}")
+            else:
+                print("⚠️ All fields were null, data not saved to sheets")
+                
+        except Exception as sheets_e:
+            sheets_error = str(sheets_e)
+            print(f"❌ Error saving to Google Sheets: {sheets_error}")
+        
+        # Prepare response
         response = {
             "success": True,
             "message_content": message_content,
+            "saved_to_sheets": saved_to_sheets,
             **extracted_data
         }
+        
+        # Add sheets error to response if it occurred
+        if sheets_error:
+            response["sheets_error"] = sheets_error
         
         return jsonify(response), 200
         
@@ -73,7 +99,8 @@ def webhook_handler(subpath):
             "error": str(e),
             "full_name": None,
             "phone_number": None,
-            "id_document": None
+            "id_document": None,
+            "saved_to_sheets": False
         }
         
         print(f"Error in webhook handler: {str(e)}")
