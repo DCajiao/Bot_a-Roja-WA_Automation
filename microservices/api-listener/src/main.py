@@ -20,8 +20,9 @@ app = Flask(__name__)
 app.config['DEBUG'] = os.getenv('FLASK_DEBUG', 'False').lower() == 'true'
 
 
-@app.route('/webhook', methods=['POST'])
-def webhook_handler():
+@app.route('/webhook', defaults={'subpath': ''}, methods=['POST'])
+@app.route('/webhook/<path:subpath>', methods=['POST'])
+def webhook_handler(subpath):
     """
     Main webhook endpoint that processes WhatsApp messages and extracts user data.
     
@@ -30,6 +31,7 @@ def webhook_handler():
     """
     
     try:
+        print(f"Received webhook for subpath: {subpath}")
         # Get the payload from the request
         payload = request.get_json()
         
