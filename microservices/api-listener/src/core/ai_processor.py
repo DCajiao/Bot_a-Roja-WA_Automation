@@ -16,6 +16,38 @@ logger = logging.getLogger(__name__)
 # Load environment variables
 load_dotenv()
 
+def clean_json_response(response_text: str) -> str:
+    """
+    Clean AI response to extract JSON from markdown code blocks or other formatting.
+    
+    Args:
+        response_text (str): Raw response from AI
+        
+    Returns:
+        str: Cleaned JSON string ready for parsing
+    """
+    
+    # Remove whitespace
+    cleaned = response_text.strip()
+    
+    # Check if response is wrapped in markdown code block
+    if cleaned.startswith('```json') and cleaned.endswith('```'):
+        # Remove markdown code block markers
+        cleaned = cleaned[7:-3].strip()  # Remove ```json at start and ``` at end
+    elif cleaned.startswith('```') and cleaned.endswith('```'):
+        # Generic code block
+        cleaned = cleaned[3:-3].strip()
+    
+    # Handle other possible prefixes
+    if cleaned.startswith('json'):
+        cleaned = cleaned[4:].strip()
+    
+    # Remove any remaining backticks
+    cleaned = cleaned.replace('`', '')
+    
+    return cleaned
+
+
 def extract_user_data_with_ai(message: str) -> Dict[str, Any]:
     """
     Extract user data (full name, phone number, ID document) from message using Gemini AI.
@@ -56,7 +88,8 @@ def extract_user_data_with_ai(message: str) -> Dict[str, Any]:
         
         # Parse the AI response
         ai_response_text = response.text.strip()
-        logging.info(f"AI Response: {ai_response_text}")
+        ai_response_text = clean_json_response(ai_response_text)
+        logger.info(f"AI Response: {ai_response_text}")
         
         # Try to parse as JSON
         try:
